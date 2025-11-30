@@ -1,9 +1,9 @@
 using Api.Middleware;
-using Application.Auth.Common.Settings;
-using Application.Auth.Interfaces;
-using Application.Auth.Services.AuthService;
-using Application.Auth.Services.AuthService.Mapping;
-using Application.Auth.Services.VerificationCodesService;
+using Application.Common.Settings;
+using Application.Interfaces;
+using Application.Services.VerificationCodesService;
+using Application.Services.AuthService;
+using Application.Services.AuthService.Mapping;
 using Infrastructure.Database;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;

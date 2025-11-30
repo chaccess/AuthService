@@ -1,5 +1,4 @@
-﻿using Application.Auth.Exceptions;
-using System.Net.Http.Headers;
+﻿using Application.Exceptions;
 
 namespace Api.Middleware
 {
@@ -38,7 +37,7 @@ namespace Api.Middleware
 
             var res = new
             {
-                exception.Message,
+                Message = statudCode == StatusCodes.Status500InternalServerError ? "Внутренняя ошибка сервиса" : exception.Message,
                 TraceId = context.TraceIdentifier,
             };
 

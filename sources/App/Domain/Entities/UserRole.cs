@@ -2,8 +2,9 @@
 {
     public enum UserRole
     {
-        Root,
+        Demo,
+        User,
         Admin,
-        User
+        Root,
     }
 }

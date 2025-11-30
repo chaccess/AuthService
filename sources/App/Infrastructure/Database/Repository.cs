@@ -1,4 +1,4 @@
-﻿using Application.Auth.Interfaces;
+﻿using Application.Interfaces;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -79,6 +79,21 @@ namespace Infrastructure.Database
                 .WhereNotDeleted(c => c.UserId == id && c.Destination == VerificationCodeDestination.Phone && !c.Used)
                 .OrderByDescending(c => c.CreateDate)
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> UserExistsByEmailAsync(string email)
+        {
+            return await _context.Users.WhereNotDeleted(u => u.Email == email).AnyAsync();
+        }
+
+        public async Task<bool> UserExistsByIdAsync(Guid userId)
+        {
+            return await _context.Users.WhereNotDeleted(u => u.Id == userId).AnyAsync();
+        }
+
+        public async Task<bool> UserExistsByPhoneAsync(string phone)
+        {
+            return await _context.Users.WhereNotDeleted(u => u.Phone == phone).AnyAsync();
         }
     }
 

@@ -1,5 +1,5 @@
-using Application.Auth.Services.AuthService;
-using Application.Auth.Services.VerificationCodesService;
+using Application.Services.AuthService;
+using Application.Services.VerificationCodesService;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
@@ -24,8 +24,6 @@ namespace Api.Controllers
         public async Task<IActionResult> VerifyCode([FromBody] AuthRequest model)
         {
             var response = await _authService.Authenticate(model);
-
-            response = null;
 
             return response == null ? throw new Exception("Что-то пошло не так") : Ok(response);
         }
