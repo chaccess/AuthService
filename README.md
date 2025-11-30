@@ -28,7 +28,7 @@
    git clone https://github.com/ваш-репозиторий.git
    cd ваш-репозиторий
 2. Запустить сервер Postgres
-3. Выполнить скрипты из файла AuthInit.sql
+3. Выполнить скрипты из файла [AuthInit](./AuthInit.sql)
 4. В VisualStudio открыть Package Manager Console, выбрать проект Infrastructure и выполнить команду
    ```bash
    update-database
