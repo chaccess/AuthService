@@ -16,7 +16,7 @@ public class VerificationCodesService(
     private readonly Random _rnd = new();
     private readonly IOptions<VerificationCodesSettings> _options = options;
 
-    public async Task<bool> SendCodeViaSms(string login)
+    public async Task<string> SendCode(string login)
     {
         bool isPhone = PreCompiledData.PhoneRegex().IsMatch(login);
         bool isEmail = PreCompiledData.EmailRegex().IsMatch(login);
@@ -48,21 +48,21 @@ public class VerificationCodesService(
             UserId = user.Id,
             Code = codeString,
             Type = VerificationCodeType.Auth,
-            Destination = VerificationCodeDestination.Phone,
-            TimeToLive = _options.Value.SmsTimeToLive,
+            Destination = isPhone ? VerificationCodeDestination.Phone : VerificationCodeDestination.Email,
+            TimeToLive = _options.Value.CodeTimeToLive,
         };
 
         await _repository.AddVerificationCodeAsync(verificationCode);
         await _repository.Commit();
 
-        return true;
+        return isPhone ? "phone" : "email";
     }
 
-    public async Task<bool> VerifySmsCode(User user, string code)
+    public async Task<bool> VerifyCode(User user, string code, bool isPhone)
     {
-        var lastCode = await this._repository.GetUserLastSmsVerificationCodeAsync(user.Id);
+        var lastCode = await _repository.GetUserLastSmsVerificationCodeAsync(user.Id, isPhone);
 
-        if (!(lastCode?.Code == code) || !(lastCode.CreateDate.AddSeconds(_options.Value.SmsTimeToLive) >= DateTime.UtcNow))
+        if (!(lastCode?.Code == code) || !(lastCode.CreateDate.AddSeconds(_options.Value.CodeTimeToLive) >= DateTime.UtcNow))
         {
             return false;
         }

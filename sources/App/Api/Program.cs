@@ -1,14 +1,15 @@
 using Api.Middleware;
 using Application.Common.Settings;
+using Application.CQRS.Commands.SendCode;
 using Application.Interfaces;
-using Application.Services.VerificationCodesService;
 using Application.Services.AuthService;
 using Application.Services.AuthService.Mapping;
+using Application.Services.VerificationCodesService;
 using Infrastructure.Database;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using System.Security.Cryptography;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +20,12 @@ builder.Services.Configure<VerificationCodesSettings>(builder.Configuration.GetS
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRepository, Repository>();
 builder.Services.AddScoped<IVerificationCodesService, VerificationCodesService>();
-builder.Services.AddAutoMapper(typeof(UserMappingProfile));
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddProfile<UserMappingProfile>();
+});
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(SendCodeCommand).Assembly));
 
 builder.Services.AddAuthentication(options =>
 {
@@ -28,19 +34,29 @@ builder.Services.AddAuthentication(options =>
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
 }).AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, o =>
 {
+    var rsa = RSA.Create(2048);
     o.TokenValidationParameters = new TokenValidationParameters
     {
         //ValidIssuer = "localhost",
         //ValidAudience = "localhost",
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["JWT:JwtSecretString"])
-            ),
+        IssuerSigningKey = new RsaSecurityKey(rsa),
         ValidateIssuer = false,
         ValidateAudience = false,
-        ValidateLifetime = false,
-        ValidateIssuerSigningKey = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
     };
     o.IncludeErrorDetails = true;
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")  // разрешённый фронтенд
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // если используются куки/авторизация
+    });
 });
 
 // Add services to the container.
@@ -70,8 +86,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

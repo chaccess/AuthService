@@ -9,7 +9,7 @@ public interface IRepository
     Task<User?> GetUserByEmailAsync(string email, bool noTracking = false);
     Task<User?> GetUserByPhoneAsync(string phone, bool noTracking = false);
     Task<RefreshToken?> GetUserLastRefreshTokenAsync(Guid id);
-    Task<VerificationCode?> GetUserLastSmsVerificationCodeAsync(Guid id);
+    Task<VerificationCode?> GetUserLastSmsVerificationCodeAsync(Guid id, bool isPhone);
     #endregion
 
     #region Exists Methods

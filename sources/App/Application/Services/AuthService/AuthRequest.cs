@@ -5,7 +5,7 @@ namespace Application.Services.AuthService;
 public class AuthRequest
 {
     [DefaultValue("79991115544")]
-    public string EmailOrPhone { get; set; }
+    public string Login { get; set; }
 
     [DefaultValue("000000")]
     public string Code { get; set; }

@@ -73,10 +73,10 @@ namespace Infrastructure.Database
                 .FirstOrDefaultAsync(t => t.UserId == id);
         }
 
-        public async Task<VerificationCode?> GetUserLastSmsVerificationCodeAsync(Guid id)
+        public async Task<VerificationCode?> GetUserLastSmsVerificationCodeAsync(Guid id, bool isPhone)
         {
             return await _context.VerificationCodes
-                .WhereNotDeleted(c => c.UserId == id && c.Destination == VerificationCodeDestination.Phone && !c.Used)
+                .WhereNotDeleted(c => c.UserId == id && c.Destination == (isPhone ? VerificationCodeDestination.Phone : VerificationCodeDestination.Email) && !c.Used)
                 .OrderByDescending(c => c.CreateDate)
                 .FirstOrDefaultAsync();
         }

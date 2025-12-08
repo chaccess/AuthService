@@ -31,28 +31,28 @@ namespace Application.Services.AuthService
         {
             ArgumentNullException.ThrowIfNull(model);
 
-            bool isPhone = PreCompiledData.PhoneRegex().IsMatch(model.EmailOrPhone);
-            bool isEmail = PreCompiledData.EmailRegex().IsMatch(model.EmailOrPhone);
+            bool isPhone = PreCompiledData.PhoneRegex().IsMatch(model.Login);
+            bool isEmail = PreCompiledData.EmailRegex().IsMatch(model.Login);
 
             User? user;
 
             if (isPhone)
             {
-                user = await _repository.GetUserByPhoneAsync(model.EmailOrPhone);
+                user = await _repository.GetUserByPhoneAsync(model.Login);
             }
             else if (isEmail)
             {
-                user = await _repository.GetUserByEmailAsync(model.EmailOrPhone);
+                user = await _repository.GetUserByEmailAsync(model.Login);
             }
             else
             {
-                throw new BadRequestException($"{model.EmailOrPhone} не является телефоном или емейлом");
+                throw new BadRequestException($"{model.Login} не является телефоном или емейлом");
             }
 
             if (user == null)
                 ThrowUserNotFoundException();
 
-            if (!await _verificationCodesService.VerifySmsCode(user, model.Code))
+            if (!await _verificationCodesService.VerifyCode(user, model.Code, isPhone))
                 throw new BadRequestException("Неверный код");
 
             return await BuildAuthResponse(user);
@@ -191,8 +191,8 @@ namespace Application.Services.AuthService
             {
                 Subject = identity,
                 Expires = DateTime.UtcNow.AddSeconds(refresh ? REFERSH_TOKEN_LIFETIME_IN_SECONDS : TOKEN_LIFETIME_IN_SECONDS),
-                Issuer = "auth.shokolad",
-                Audience = "shokolad",
+                Issuer = "auth.shokolad.ru",
+                Audience = "shokolad.ru",
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 

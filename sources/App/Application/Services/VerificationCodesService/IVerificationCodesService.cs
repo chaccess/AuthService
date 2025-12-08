@@ -4,7 +4,7 @@ namespace Application.Services.VerificationCodesService;
 
 public interface IVerificationCodesService
 {
-    Task<bool> SendCodeViaSms(string login);
+    Task<string> SendCode(string login);
 
-    Task<bool> VerifySmsCode(User user, string code);
+    Task<bool> VerifyCode(User user, string code, bool isPhone);
 }

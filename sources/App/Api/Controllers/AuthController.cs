@@ -1,26 +1,30 @@
+using Api.ViewModels;
+using Application.CQRS.Commands.SendCode;
 using Application.Services.AuthService;
-using Application.Services.VerificationCodesService;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UserController(
+    public class AuthController(
         IAuthService authService,
-        IVerificationCodesService verificationCodesService
+        IMediator mediator
         ) : ControllerBase
     {
         private readonly IAuthService _authService = authService;
-        private readonly IVerificationCodesService _verificationCodesService = verificationCodesService;
+        private readonly IMediator _mediator = mediator;
 
-        [HttpGet("getCode", Name = "GetCode")]
-        public async Task<IActionResult> GetCode(string login)
+        [HttpPost("sendCode", Name = "sendCode")]
+        public async Task<IActionResult> SendCode([FromBody] SendCodeRequest request)
         {
-            return await _verificationCodesService.SendCodeViaSms(login) ? Ok() : Problem();
+            var res = await _mediator.Send(new SendCodeCommand(request.Login));
+
+            return res.IsSuccess ? Ok(res) : Problem();
         }
 
-        [HttpPost("verify", Name = "VerifyCode")]
+        [HttpPost("verify", Name = "verifyCode")]
         public async Task<IActionResult> VerifyCode([FromBody] AuthRequest model)
         {
             var response = await _authService.Authenticate(model);
@@ -28,7 +32,7 @@ namespace Api.Controllers
             return response == null ? throw new Exception("Что-то пошло не так") : Ok(response);
         }
 
-        [HttpPost("create", Name = "CreateUser")]
+        [HttpPost("create", Name = "createUser")]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserModel createUser)
         {
             if (!createUser.Validate())
