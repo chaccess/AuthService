@@ -4,6 +4,7 @@
     {
         Demo,
         User,
+        PremiumUser,
         Admin,
         Root,
     }

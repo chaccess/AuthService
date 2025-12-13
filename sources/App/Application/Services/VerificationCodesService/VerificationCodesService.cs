@@ -16,7 +16,7 @@ public class VerificationCodesService(
     private readonly Random _rnd = new();
     private readonly IOptions<VerificationCodesSettings> _options = options;
 
-    public async Task<string> SendCode(string login)
+    public async Task<(bool IsSuccess, string LoginType)> SendCode(string login)
     {
         bool isPhone = PreCompiledData.PhoneRegex().IsMatch(login);
         bool isEmail = PreCompiledData.EmailRegex().IsMatch(login);
@@ -40,29 +40,51 @@ public class VerificationCodesService(
             throw new NotFoundException("Пользователь не найден");
         }
 
-        string codeString = this.GenerateNewCode();
+        string codeString = this.GenerateNewCode(_options.Value.UserAuthCodeLength);
 
         VerificationCode verificationCode = new()
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
             Code = codeString,
-            Type = VerificationCodeType.Auth,
+            Type = VerificationCodeType.UserAuth,
             Destination = isPhone ? VerificationCodeDestination.Phone : VerificationCodeDestination.Email,
-            TimeToLive = _options.Value.CodeTimeToLive,
+            TimeToLive = _options.Value.UserAuthCodeTimeToLive,
         };
 
         await _repository.AddVerificationCodeAsync(verificationCode);
         await _repository.Commit();
 
-        return isPhone ? "phone" : "email";
+        return (true, isPhone ? "phone" : "email");
+    }
+
+    public async Task<string> SetTokensGetterCode(User user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        var codeString = this.GenerateNewCode(_options.Value.GetTokenCodeLength);
+
+        VerificationCode verificationCode = new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Code = codeString,
+            Type = VerificationCodeType.GetToken,
+            Destination = VerificationCodeDestination.Service,
+            TimeToLive = _options.Value.GetTokenCodeTimeToLive,
+        };
+
+        await _repository.AddVerificationCodeAsync(verificationCode);
+        await _repository.Commit();
+
+        return codeString;
     }
 
     public async Task<bool> VerifyCode(User user, string code, bool isPhone)
     {
         var lastCode = await _repository.GetUserLastSmsVerificationCodeAsync(user.Id, isPhone);
 
-        if (!(lastCode?.Code == code) || !(lastCode.CreateDate.AddSeconds(_options.Value.CodeTimeToLive) >= DateTime.UtcNow))
+        if (!(lastCode?.Code == code) || !(lastCode.CreateDate.AddSeconds(_options.Value.UserAuthCodeTimeToLive) >= DateTime.UtcNow))
         {
             return false;
         }
@@ -72,13 +94,13 @@ public class VerificationCodesService(
         return true;
     }
 
-    private string GenerateNewCode()
+    private string GenerateNewCode(int length)
     {
         var stringBuilder = new StringBuilder();
 
-        for (int i = 0; i < this._options.Value.CodeLength; ++i)
+        for (int i = 0; i < length; ++i)
         {
-            stringBuilder.Append(this._rnd.Next(0, 9));
+            stringBuilder.Append(_rnd.Next(0, 9));
         }
 
         return stringBuilder.ToString();

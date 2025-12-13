@@ -1,4 +1,4 @@
 export const LoginFormDefaults = {
     login: "",
-    code: "",
+    code: Array(6).fill(""),
 };

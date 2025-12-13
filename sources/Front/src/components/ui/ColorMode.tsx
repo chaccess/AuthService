@@ -1,18 +1,17 @@
 "use client";
 
 import type { IconButtonProps, SpanProps } from "@chakra-ui/react";
-import { ClientOnly, IconButton, Skeleton, Span } from "@chakra-ui/react";
+import { ClientOnly, Icon, IconButton, Skeleton, Span } from "@chakra-ui/react";
 import { ThemeProvider, useTheme } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
 import * as React from "react";
-import { LuMoon, LuSun } from "react-icons/lu";
+import { LuMilk } from "react-icons/lu";
+import { PiCoffeeBeanBold } from "react-icons/pi";
 
 export interface ColorModeProviderProps extends ThemeProviderProps {}
 
 export function ColorModeProvider(props: ColorModeProviderProps) {
-    return (
-        <ThemeProvider attribute="class" disableTransitionOnChange {...props} />
-    );
+    return <ThemeProvider attribute="class" {...props} />;
 }
 
 export type ColorMode = "light" | "dark";
@@ -43,7 +42,15 @@ export function useColorModeValue<T>(light: T, dark: T) {
 
 export function ColorModeIcon() {
     const { colorMode } = useColorMode();
-    return colorMode === "dark" ? <LuMoon /> : <LuSun />;
+    return colorMode === "light" ? (
+        <Icon
+            colorPalette={"{colors.chocolate.50}"}
+            as={PiCoffeeBeanBold}
+            boxSize={8}
+        />
+    ) : (
+        <Icon colorPalette={"{colors.chocolate.50}"} as={LuMilk} boxSize={8} />
+    );
 }
 
 interface ColorModeButtonProps extends Omit<IconButtonProps, "aria-label"> {}

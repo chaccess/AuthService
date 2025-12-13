@@ -52,13 +52,13 @@ export const FieldsetState: FC<FieldsetStateProps> = ({
                 <Stack>
                     <Fieldset.Legend>Вход</Fieldset.Legend>
                     <Fieldset.HelperText>
-                        Введите телефон или Email
+                        Введите телефон или почту
                     </Fieldset.HelperText>
                 </Stack>
 
                 <Fieldset.Content>
                     <Field.Root>
-                        <Field.Label>Телефон или Email</Field.Label>
+                        <Field.Label>Телефон или почта</Field.Label>
                         <Controller
                             name={"login"}
                             control={control}
@@ -66,7 +66,7 @@ export const FieldsetState: FC<FieldsetStateProps> = ({
                                 <Input
                                     {...field}
                                     name="login"
-                                    placeholder="Телефон или Email"
+                                    placeholder="Телефон или почта"
                                     value={field.value}
                                     onChange={(e) =>
                                         field.onChange(e.target.value)

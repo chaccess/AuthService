@@ -11,8 +11,6 @@ export interface IVerifyCodeRequest {
 }
 
 export interface IVerifyCodeResponse {
-    token: string;
-    refreshToken: string;
-    tokenLifeTime: number;
-    refreshTokenLifeTime: number;
+    isSuccess: boolean;
+    code: string;
 }

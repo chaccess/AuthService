@@ -2,9 +2,11 @@
 using Application.Common.Settings;
 using Application.Exceptions;
 using Application.Interfaces;
+using Application.Services.AuthService.Contracts;
 using Application.Services.VerificationCodesService;
 using AutoMapper;
 using Domain.Entities;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -17,45 +19,47 @@ namespace Application.Services.AuthService
         IOptions<JwtSettings> jwtSettings,
         IRepository repository,
         IVerificationCodesService verificationCodesService,
-        IMapper mapper) : IAuthService
+        IMapper mapper,
+        IMemoryCache cache) : IAuthService
     {
         private readonly IOptions<JwtSettings> _jwtSettings = jwtSettings ?? throw new ArgumentNullException(nameof(jwtSettings));
         private readonly IRepository _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         private readonly IVerificationCodesService _verificationCodesService = verificationCodesService ?? throw new ArgumentNullException(nameof(verificationCodesService));
         private readonly IMapper _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        private readonly IMemoryCache _memoryCache = cache ?? throw new ArgumentNullException(nameof(cache));
 
         private const long TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 6;
         private const long REFERSH_TOKEN_LIFETIME_IN_SECONDS = 60 * 60 * 24 * 7;
 
-        public async Task<AuthResponse> Authenticate(AuthRequest model)
+        public async Task<AuthResponse> Authenticate(AuthRequest request)
         {
-            ArgumentNullException.ThrowIfNull(model);
+            ArgumentNullException.ThrowIfNull(request);
 
-            bool isPhone = PreCompiledData.PhoneRegex().IsMatch(model.Login);
-            bool isEmail = PreCompiledData.EmailRegex().IsMatch(model.Login);
+            bool isPhone = PreCompiledData.PhoneRegex().IsMatch(request.Login);
+            bool isEmail = PreCompiledData.EmailRegex().IsMatch(request.Login);
 
             User? user;
 
             if (isPhone)
             {
-                user = await _repository.GetUserByPhoneAsync(model.Login);
+                user = await _repository.GetUserByPhoneAsync(request.Login);
             }
             else if (isEmail)
             {
-                user = await _repository.GetUserByEmailAsync(model.Login);
+                user = await _repository.GetUserByEmailAsync(request.Login);
             }
             else
             {
-                throw new BadRequestException($"{model.Login} не является телефоном или емейлом");
+                throw new BadRequestException($"{request.Login} не является телефоном или емейлом");
             }
 
             if (user == null)
                 ThrowUserNotFoundException();
 
-            if (!await _verificationCodesService.VerifyCode(user, model.Code, isPhone))
+            if (!await _verificationCodesService.VerifyCode(user, request.Code, isPhone))
                 throw new BadRequestException("Неверный код");
 
-            return await BuildAuthResponse(user);
+            return await BuildAuthResponse(user, request.UserInfo);
         }
 
         public async Task<AuthResponse> RefreshTokens(string refreshToken)
@@ -80,7 +84,7 @@ namespace Application.Services.AuthService
             {
                 tokenHandler.ValidateToken(refreshToken, validationParameters, out validatedToken);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 throw new BadRequestException("Невалидный токен");
             }
@@ -110,39 +114,12 @@ namespace Application.Services.AuthService
             return await BuildAuthResponse(user);
         }
 
-        public async Task<User?> AddUser(CreateUserModel userModel)
-        {
-            ArgumentNullException.ThrowIfNull(userModel);
-
-            var user = _mapper.Map<User>(userModel);
-            user.Id = Guid.NewGuid();
-
-            if (await UserExists(user))
-            {
-                throw new AlreadyExistsException("Пользователь уже существует");
-            }
-
-            await _repository.AddUserAsync(user);
-            await _repository.Commit();
-
-            return user;
-        }
-
         public async Task<User?> GetUserByIdAsync(Guid id)
         {
             return await _repository.GetUserByIdAsync(id);
         }
 
-        private async Task<bool> UserExists(User user)
-        {
-            var byId = await _repository.UserExistsByIdAsync(user.Id);
-            var byEmail = await _repository.UserExistsByEmailAsync(user.Email);
-            var byPhone = await _repository.UserExistsByPhoneAsync(user.Phone);
-
-            return byId || byEmail || byPhone;
-        }
-
-        private async Task<AuthResponse> BuildAuthResponse(User user)
+        private async Task<AuthResponse> BuildAuthResponse(User user, AuthRequestUserInfo? info = null)
         {
             var lastRefreshToken = await _repository.GetUserLastRefreshTokenAsync(user.Id);
             if (lastRefreshToken != null)
@@ -162,13 +139,37 @@ namespace Application.Services.AuthService
                 LifeTime = REFERSH_TOKEN_LIFETIME_IN_SECONDS
             };
 
+            if (info is not null)
+            {
+                var userInfo = new UserInfo
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Browser = info.Browser,
+                    OS = info.Os,
+                    Locale = info.Locale,
+                    TimeZone = info.TimeZone,
+                    Device = info.Device,
+                    IP = info.IP,
+                };
+
+                await _repository.AddUserInfoAsync(userInfo);
+            }
+
             await _repository.AddRefreshTokenAsync(newRefresh);
             await _repository.Commit();
 
-            return new AuthResponse(accessToken, refreshToken, TOKEN_LIFETIME_IN_SECONDS, REFERSH_TOKEN_LIFETIME_IN_SECONDS);
+            if (!_memoryCache.TryGetValue(user.Id, out var _))
+            {
+                _memoryCache.Set(user.Id, accessToken);
+            }
+
+            var code = await _verificationCodesService.SetTokensGetterCode(user);
+
+            return new AuthResponse(true, code);
         }
 
-        private string GenerateJwtToken(User user, bool refresh = false)
+        private string GenerateJwtToken(User user, bool refresh = false, AuthRequestUserInfo? info = null)
         {
             var handler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_jwtSettings.Value.JwtSecretString);
@@ -183,6 +184,24 @@ namespace Application.Services.AuthService
                 claims.Add(new Claim("Email", user.Email));
                 claims.Add(new Claim("Phone", user.Phone));
                 claims.Add(new Claim("Role", user.Role.ToString()));
+
+                if (info?.Device is not null)
+                    claims.Add(new Claim("Device", info.Device));
+
+                if (info?.Os is not null)
+                    claims.Add(new Claim("OS", info.Os));
+
+                if (info?.Locale is not null)
+                    claims.Add(new Claim("Locale", info.Locale));
+
+                if (info?.TimeZone is not null)
+                    claims.Add(new Claim("TimeZone", info.TimeZone));
+
+                if (info?.Browser is not null)
+                    claims.Add(new Claim("Browser", info.Browser));
+
+                if (info?.IP is not null)
+                    claims.Add(new Claim("IP", info.IP));
             }
 
             var identity = new ClaimsIdentity(claims);
@@ -191,8 +210,8 @@ namespace Application.Services.AuthService
             {
                 Subject = identity,
                 Expires = DateTime.UtcNow.AddSeconds(refresh ? REFERSH_TOKEN_LIFETIME_IN_SECONDS : TOKEN_LIFETIME_IN_SECONDS),
-                Issuer = "auth.shokolad.ru",
-                Audience = "shokolad.ru",
+                Issuer = "shokolade.ru",
+                Audience = "shokolade.ru",
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 

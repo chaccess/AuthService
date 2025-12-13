@@ -1,7 +1,9 @@
 ﻿using Application.Interfaces;
+using Application.Services.AuthService.Contracts;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 
 namespace Infrastructure.Database
 {
@@ -9,6 +11,7 @@ namespace Infrastructure.Database
     {
         private readonly AuthDbContext _context = context;
 
+        #region AddMethods
         public async Task AddRefreshTokenAsync(RefreshToken refreshToken)
         {
             await _context.RefreshTokens.AddAsync(refreshToken);
@@ -24,11 +27,50 @@ namespace Infrastructure.Database
             await _context.AddAsync(verificationCode);
         }
 
+        public async Task AddUserInfoAsync(UserInfo info)
+        {
+            await _context.UserInfos.AddAsync(info);
+        }
+        #endregion
+
+        #region DeleteMethods
+        public bool ForceDeleteUser(User user)
+        {
+            _context.Users.Remove(user);
+
+            return true;
+        }
+        #endregion
+
+        #region UpdateMethods
+        public void UpdateUser(User user)
+        {
+            _context.Users.Update(user);
+        }
+        #endregion
+
+        #region AttachMethods
+        public void AttachUser(User user, Expression<Func<User, object>>[] props)
+        {
+            _context.Users.Attach(user);
+
+            var entry = _context.Users.Entry(user);
+
+            foreach (var p in props)
+            {
+                entry.Property(p).IsModified = true;
+            }
+        }
+        #endregion
+
+        #region SaveMethods
         public async Task<int> Commit()
         {
             return await _context.SaveChangesAsync();
         }
+        #endregion
 
+        #region GetMethods
         public async Task<User?> GetUserByEmailAsync(string email, bool noTracking = false)
         {
             var query = _context.Users.WhereNotDeleted(u => u.Email == email);
@@ -80,7 +122,9 @@ namespace Infrastructure.Database
                 .OrderByDescending(c => c.CreateDate)
                 .FirstOrDefaultAsync();
         }
+        #endregion
 
+        #region ExistsMethods
         public async Task<bool> UserExistsByEmailAsync(string email)
         {
             return await _context.Users.WhereNotDeleted(u => u.Email == email).AnyAsync();
@@ -95,6 +139,7 @@ namespace Infrastructure.Database
         {
             return await _context.Users.WhereNotDeleted(u => u.Phone == phone).AnyAsync();
         }
+        #endregion
     }
 
     public static class DbSetExtentions

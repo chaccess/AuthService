@@ -1,7 +1,9 @@
 using Api.ViewModels;
-using Application.CQRS.Commands.SendCode;
 using Application.Services.AuthService;
+using Application.Services.AuthService.Contracts;
+using Application.Services.VerificationCodesService;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers
@@ -10,51 +12,33 @@ namespace Api.Controllers
     [Route("api/[controller]")]
     public class AuthController(
         IAuthService authService,
-        IMediator mediator
+        IVerificationCodesService codesService
         ) : ControllerBase
     {
         private readonly IAuthService _authService = authService;
-        private readonly IMediator _mediator = mediator;
+        private readonly IVerificationCodesService _codesService = codesService;
 
         [HttpPost("sendCode", Name = "sendCode")]
+        [Authorize(Policy = "OnlyAnonymous")]
         public async Task<IActionResult> SendCode([FromBody] SendCodeRequest request)
         {
-            var res = await _mediator.Send(new SendCodeCommand(request.Login));
+            var res = await _codesService.SendCode(request.Login);
 
             return res.IsSuccess ? Ok(res) : Problem();
         }
 
         [HttpPost("verify", Name = "verifyCode")]
+        [Authorize(Policy = "OnlyAnonymous")]
         public async Task<IActionResult> VerifyCode([FromBody] AuthRequest model)
         {
+            if (model.UserInfo is not null)
+            {
+                model.UserInfo.IP = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "no-data";
+            }
+
             var response = await _authService.Authenticate(model);
 
             return response == null ? throw new Exception("Что-то пошло не так") : Ok(response);
-        }
-
-        [HttpPost("create", Name = "createUser")]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserModel createUser)
-        {
-            if (!createUser.Validate())
-            {
-                return BadRequest();
-            }
-
-            try
-            {
-                var user = await _authService.AddUser(createUser);
-
-                if (user == null)
-                {
-                    return BadRequest();
-                }
-
-                return Ok(user);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.ToString());
-            }
         }
 
         [HttpGet("refresh", Name = "RefreshTokens")]

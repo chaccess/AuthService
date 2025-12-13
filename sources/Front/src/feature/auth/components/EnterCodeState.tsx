@@ -4,41 +4,81 @@ import {
     Field,
     Fieldset,
     Icon,
+    Link,
     Loader,
     PinInput,
+    Stack,
     VStack,
+    Text,
 } from "@chakra-ui/react";
-import { useEffect, useRef, useState, type FC } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+    type Dispatch,
+    type FC,
+    type SetStateAction,
+} from "react";
 import { BsArrowLeft } from "react-icons/bs";
 import type { LoginType } from "../../../api/auth/types";
 import { Controller, useFormContext } from "react-hook-form";
 import { type LoginForm } from "../../../types/auth/types";
+import { verifiCodeAsync } from "../../../api/auth";
 
 type EnterCodeStateProps = {
     startFading: boolean;
     fadeDuration: number;
     loginType: LoginType;
-    isLoading: boolean;
     animationCompleted: () => void;
     backToFieldsForm: () => void;
-    verifyCode: (data: LoginForm) => Promise<void>;
+    resendCode: () => void;
+    secondsLeft: number;
+    isRunning: boolean;
+    setVerified: Dispatch<SetStateAction<boolean>>;
+    setGetTokenCode: Dispatch<SetStateAction<string>>;
 };
 
 export const EnterCodeState: FC<EnterCodeStateProps> = ({
     startFading,
     fadeDuration,
     loginType,
-    isLoading,
     animationCompleted,
     backToFieldsForm,
-    verifyCode,
+    resendCode,
+    secondsLeft,
+    isRunning,
+    setVerified,
+    setGetTokenCode,
 }) => {
     const { setValue, watch, handleSubmit, control } =
         useFormContext<LoginForm>();
     const firstPinRef = useRef<HTMLInputElement>(null);
+    const lastPinRef = useRef<HTMLInputElement>(null);
     const [isDisabled, setIsDisabled] = useState<boolean>(false);
-    const login = watch("login");
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [verifyError, setVerifyError] = useState<boolean>(false);
     const code = watch("code");
+    const makeEmptyCode = () => Array(6).fill("");
+
+    const verifyCode = async (data: LoginForm) => {
+        setIsLoading(true);
+        try {
+            var res = await verifiCodeAsync(data);
+
+            if (res.isSuccess) {
+                setGetTokenCode(res.code);
+                setVerified(true);
+            }
+        } catch {
+            setVerifyError(true);
+        } finally {
+            setIsLoading(false);
+            setValue("code", makeEmptyCode());
+            setIsDisabled(false);
+            firstPinRef.current?.focus();
+            lastPinRef.current?.setAttribute("placeholder", "○"); // <-- Костыль, не знаю как иначе победить
+        }
+    };
 
     useEffect(() => {
         if (startFading) {
@@ -72,7 +112,7 @@ export const EnterCodeState: FC<EnterCodeStateProps> = ({
     }, []);
 
     useEffect(() => {
-        if (code?.length == 6) {
+        if (code?.length == 6 && code.every((x) => x.length == 1)) {
             setIsDisabled(true);
             handleSubmit(verifyCode)();
         }
@@ -98,8 +138,8 @@ export const EnterCodeState: FC<EnterCodeStateProps> = ({
                             <Fieldset.Legend>Вход</Fieldset.Legend>
                             <Fieldset.HelperText>
                                 Код отправлен на
-                                {loginType === "email" ? " Email " : " номер "}
-                                {login}
+                                {loginType === "email" ? " почту " : " номер "}
+                                {field.value}
                             </Fieldset.HelperText>
                         </VStack>
 
@@ -110,9 +150,13 @@ export const EnterCodeState: FC<EnterCodeStateProps> = ({
                                     minW={300}
                                     autoFocus
                                     disabled={isDisabled}
+                                    invalid={verifyError}
+                                    colorPalette="chocolate"
                                     otp
+                                    value={field.value}
                                     onValueChange={(e) => {
-                                        field.onChange(e.value.join(""));
+                                        field.onChange(e.value);
+                                        setVerifyError(false);
                                     }}
                                 >
                                     <PinInput.HiddenInput />
@@ -140,24 +184,40 @@ export const EnterCodeState: FC<EnterCodeStateProps> = ({
                                         />
                                         <PinInput.Input
                                             index={5}
+                                            ref={lastPinRef}
                                             caretColor={"transparent"}
                                         />
                                     </PinInput.Control>
                                 </PinInput.Root>
                             </Field.Root>
                         </Fieldset.Content>
-
-                        <Button
-                            alignSelf="flex-start"
-                            onClick={() => {
-                                setValue("code", "");
-                                backToFieldsForm();
-                            }}
-                        >
-                            <Icon>
-                                <BsArrowLeft />
-                            </Icon>
-                        </Button>
+                        <Stack>
+                            <Button
+                                alignSelf="flex-start"
+                                onClick={() => {
+                                    setValue("code", makeEmptyCode());
+                                    backToFieldsForm();
+                                }}
+                            >
+                                <Icon>
+                                    <BsArrowLeft />
+                                </Icon>
+                            </Button>
+                            {isRunning && secondsLeft !== 60 && (
+                                <Text>Осталось {secondsLeft} секунд</Text>
+                            )}
+                            {!isRunning && (
+                                <Link
+                                    variant="underline"
+                                    onClick={() => {
+                                        resendCode();
+                                        setVerifyError(false);
+                                    }}
+                                >
+                                    Отправить заново
+                                </Link>
+                            )}
+                        </Stack>
                     </Fieldset.Root>
                 )}
             />

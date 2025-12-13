@@ -1,5 +1,5 @@
 import type { LoginForm } from "../../types/auth/types";
-import { api } from "../../utils/axios";
+import { api } from "../../utils/utils";
 import type { ISendCodeResult, IVerifyCodeResponse } from "./types";
 
 export async function sendCodeAsync(login: string): Promise<ISendCodeResult> {
@@ -13,7 +13,11 @@ export async function sendCodeAsync(login: string): Promise<ISendCodeResult> {
 export async function verifiCodeAsync(
     data: LoginForm
 ): Promise<IVerifyCodeResponse> {
-    const res = await api.post<IVerifyCodeResponse>("/verify", data);
+    const res = await api.post<IVerifyCodeResponse>("/verify", {
+        login: data.login,
+        code: data.code.join(""),
+        userInfo: data.userInfo,
+    });
 
     return res.data;
 }

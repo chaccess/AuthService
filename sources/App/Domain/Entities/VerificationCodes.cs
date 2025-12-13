@@ -1,6 +1,4 @@
-﻿using Domain.Entities;
-
-namespace Domain.Entities
+﻿namespace Domain.Entities
 {
     public class VerificationCode : BaseEntity
     {
@@ -14,12 +12,14 @@ namespace Domain.Entities
 
     public enum VerificationCodeType
     {
-        Auth
+        UserAuth,
+        GetToken
     }
 
     public enum VerificationCodeDestination
     {
         Email,
-        Phone
+        Phone,
+        Service
     }
 }

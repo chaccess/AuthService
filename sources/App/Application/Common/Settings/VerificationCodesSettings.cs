@@ -2,7 +2,11 @@
 
 public class VerificationCodesSettings
 {
-    public int CodeLength { get; set; }
+	public const string Key = "VerificationCodes";
 
-    public long CodeTimeToLive { get; set; }
+	public int UserAuthCodeLength { get; set; }
+	public int UserAuthCodeTimeToLive { get; set; }
+
+	public int GetTokenCodeLength { get; set; }
+	public int GetTokenCodeTimeToLive { get; set; }
 }
