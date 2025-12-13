@@ -1,6 +1,6 @@
 # AuthService
  
-> Примитивный сервис аутентификации через JWT-токены
+> Примитивный сервис аутентификации на базе OAuth 2.0
 
 ## Описание проекта
 
@@ -23,12 +23,19 @@
 
 Опишите пошагово, как запустить проект локально или на сервере:  
 
+**Back:**
 1. Клонировать репозиторий  
+2. Запустить сервер Postgres  
+3. Выполнить скрипты из файла [AuthInit](./AuthInit.sql)  
+4. В VisualStudio открыть Package Manager Console, выбрать проект Infrastructure и выполнить команду  
    ```bash
-   git clone https://github.com/ваш-репозиторий.git
-   cd ваш-репозиторий
-2. Запустить сервер Postgres
-3. Выполнить скрипты из файла [AuthInit](./AuthInit.sql)
-4. В VisualStudio открыть Package Manager Console, выбрать проект Infrastructure и выполнить команду
+   update-database  
+
+**Front:**
+1. Перейти в папку AuthService\sources\Front  
+2. Выполнить
    ```bash
-   update-database
+   npm i
+3. Выполнить
+   ```bash
+   npm run dev
